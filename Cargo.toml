@@ -1,0 +1,6 @@
+[package]
+name = "cabl"
+version = "0.1.0"
+authors = ["Yati Sagade <yati.sagade@gmail.com>"]
+
+[dependencies]
