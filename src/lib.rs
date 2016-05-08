@@ -39,24 +39,30 @@ impl<T: Iterator<Item=char>> Cabl<T> {
         self.error(&format!("Expected {} (found {})", what, have))
     }
 
-    fn get_name(&mut self) -> Result<char> {
-        let ret = if is_alphabetic(self.look) {
-            self.look.ok_or(String::from("Inconsistent state"))
-        } else {
-            self.expected("Name")
-        };
-        self.read_next_char();
-        ret
+    fn get_name(&mut self) -> Result<String> {
+        let mut tok = String::new();
+        if !is_alphabetic(self.look) {
+            return self.expected("Name");
+        }
+        while is_alphanumeric(self.look) {
+            tok.push(self.look.unwrap());
+            self.read_next_char();
+            try!(self.skip_whitespace());
+        }
+        Ok(tok)
     }
 
-    fn get_number(&mut self) -> Result<char> {
-        let ret = if is_numeric(self.look) {
-            self.look.ok_or(String::from("Inconsistent state"))
-        } else {
-            self.expected("Digit")
-        };
-        self.read_next_char();
-        ret
+    fn get_number(&mut self) -> Result<String> {
+        let mut tok = String::new();
+        if !is_numeric(self.look) {
+            return self.expected("Digit");
+        }
+        while is_numeric(self.look) {
+            tok.push(self.look.unwrap());
+            self.read_next_char();
+            try!(self.skip_whitespace());
+        }
+        Ok(tok)
     }
 
     fn emit(&self, msg: &str) {
@@ -191,15 +197,17 @@ impl<T: Iterator<Item=char>> Cabl<T> {
         match self.look {
             Some(v) if v == c => {
                 self.read_next_char();
+                try!(self.skip_whitespace());
                 Ok(())
             },
-            _       => self.expected(&format!("{}", c))
+            _       => self.expected(&format!("'{}'", c))
         }
     }
 
 
     pub fn process(&mut self) {
         self.prelude(); // The section declaration and beginning of the entry point.
+        self.skip_whitespace();
         let result = self.assignment(); // Actual code gen
         self.abort_on_error(&result);
         if !is_newline(self.look) {
@@ -251,6 +259,13 @@ impl<T: Iterator<Item=char>> Cabl<T> {
             &Ok(_)      => { },
         } 
     }
+
+    fn skip_whitespace(&mut self) -> Result<()> {
+        while is_whitespace(self.look) {
+            self.read_next_char();
+        }
+        Ok(())
+    }
 }
 
 fn is_addop(c: Option<char>) -> bool { c.map_or(false, |c| c == '+' || c == '-') }
@@ -267,4 +282,12 @@ fn is_newline(c: Option<char>) -> bool { c.map_or(false, |c| c == '\n') }
 
 fn char_or_msg(c: Option<char>, msg: &str) -> String {
     c.map_or(String::from(msg), |c| format!("'{}'", c))
+}
+
+fn is_alphanumeric(c: Option<char>) -> bool {
+    c.map_or(false, |c| c.is_alphanumeric())
+} 
+
+fn is_whitespace(c: Option<char>) -> bool {
+    c.map_or(false, |c| c == ' ' || c == '\t')
 }
